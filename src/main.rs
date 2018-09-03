@@ -31,6 +31,12 @@ fn main() {
                 .help("Zookeeper connect timeout in milliseconds"),
         )
         .arg(
+            Arg::with_name("run-once")
+                .takes_value(true)
+                .long("run-once")
+                .help("Run a command non-interactively and exit"),
+        )
+        .arg(
             Arg::with_name("hosts")
                 .help("the zookeeper quorum string. ex: localhost:2181,localhost:2182"),
         )
@@ -38,6 +44,7 @@ fn main() {
 
     let hosts = matches.value_of("hosts");
     let timeout = value_t!(matches.value_of("connect-timeout"), u64).unwrap_or(4000);
+    let run_once = matches.value_of("run-once");
 
     let shell = Shell::new(Duration::from_millis(timeout));
     if let Some(hosts) = hosts {
@@ -45,6 +52,11 @@ fn main() {
             .split(",")
             .map(|x| x.to_string())
             .collect::<Vec<String>>());
+    }
+
+    if let Some(run_once) = run_once {
+        shell.borrow_mut().process(&run_once);
+        return;
     }
 
     let config = Config::builder()
