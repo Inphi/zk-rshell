@@ -485,7 +485,10 @@ impl<'a> ShellCompleter<'a> {
             if path.starts_with("/") {
                 path.to_string()
             } else {
-                self.sh.borrow().cwd.clone() + &path
+                (Path::new(&self.sh.borrow().cwd).join(path))
+                    .to_str()
+                    .unwrap()
+                    .to_string()
             }
         } else {
             let query_path = if path.starts_with("/") {
