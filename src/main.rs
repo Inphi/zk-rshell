@@ -3,6 +3,7 @@ extern crate clap;
 extern crate regex;
 extern crate rustyline;
 extern crate zookeeper;
+extern crate dirs;
 
 #[macro_use]
 extern crate lazy_static;
@@ -15,7 +16,6 @@ use clap::{App, AppSettings, Arg};
 use rustyline::error::ReadlineError;
 use rustyline::{CompletionType, Config, EditMode, Editor};
 use shell::Shell;
-use std::env::home_dir;
 use std::time::Duration;
 
 fn main() {
@@ -70,7 +70,7 @@ fn main() {
     let completer = Shell::get_completer(&shell);
     rl.set_completer(Some(completer));
 
-    let history_file = match home_dir() {
+    let history_file = match dirs::home_dir() {
         Some(path) => path.to_str().map(|p| format!("{}/.zkrsh_history", p)),
         None => None,
     };
