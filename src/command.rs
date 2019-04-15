@@ -13,6 +13,7 @@ pub enum Command {
     Rm,
     Set,
     Stat,
+    Pwd,
     // TODO
     // Copy,
     // Watch,
@@ -29,6 +30,7 @@ lazy_static! {
         m.insert("rm", Command::Rm);
         m.insert("set", Command::Set);
         m.insert("stat", Command::Stat);
+        m.insert("pwd", Command::Pwd);
         m.insert("connect", Command::Connect);
         m.insert("disconnect", Command::Disconnect);
         m.insert("exit", Command::Exit);

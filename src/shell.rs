@@ -82,6 +82,7 @@ impl Shell {
                 Command::Rm => self.rm(cmdargs.1.as_ref()),
                 Command::Stat => self.stat(cmdargs.1.as_ref()),
                 Command::Set => self.set(cmdargs.1.as_ref()),
+                Command::Pwd => self.pwd(cmdargs.1.as_ref()),
                 Command::Exit => quit = true,
                 Command::Help => self.help(cmdargs.1.as_ref()),
             },
@@ -303,6 +304,10 @@ impl Shell {
                 }
             }
         });
+    }
+
+    fn pwd(&self, _args: &str) {
+        display::print(&self.cwd);
     }
 
     fn help(&self, _args: &str) {
