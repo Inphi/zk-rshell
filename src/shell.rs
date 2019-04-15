@@ -207,7 +207,7 @@ impl Shell {
     fn create(&self, args: &str) {
         let tokens = tokenize_line(args);
         if tokens.len() < 2 {
-            display::print("create <path> <value>");
+            display::print("create <path> <value> [ephemeral] [sequence] [recursive]");
             return;
         }
 
@@ -220,12 +220,9 @@ impl Shell {
         let sequence = tokens
             .get(3)
             .map_or(false, |v| v.parse::<bool>().unwrap_or(false));
-        // TODO(*): recursive
-        /*
-        let _recursive = tokens
+        let recursive = tokens
             .get(4)
             .map_or(false, |v| v.parse::<bool>().unwrap_or(false));
-            */
 
         let mode = if ephemeral && sequence {
             CreateMode::EphemeralSequential
@@ -236,6 +233,35 @@ impl Shell {
         } else {
             CreateMode::Persistent
         };
+
+        if recursive {
+            let cwd_path = Path::new(&self.cwd);
+            let mut components = Path::new(&path_normalized).components().peekable();
+            let mut cur_path = String::new();
+            while let Some(c) = components.next() {
+                if !components.peek().is_some() {
+                    break;
+                }
+                // should be fine and portable as zookeeper paths don't contain any non-unicode sequences
+                let subpath = c.as_os_str().to_str().unwrap();
+                cur_path = Path::new(&cur_path)
+                    .join(subpath)
+                    .to_str()
+                    .unwrap()
+                    .to_string();
+
+                if cwd_path.starts_with(&cur_path) {
+                    continue;
+                }
+                match self.ensure_created(&cur_path, Acl::open_unsafe()) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        self.print_zk_error(e);
+                        return;
+                    }
+                };
+            }
+        }
 
         self.run_zk_op(|zk| {
             let res = zk.create(
@@ -249,6 +275,22 @@ impl Shell {
                 Err(e) => display_zk_error(path, &e),
             }
         });
+    }
+
+    fn ensure_created(&self, path: &str, acl: &Vec<Acl>) -> ZkResult<()> {
+        self.run_zk_op_result(|zk| {
+            let res = zk.create(&path, Vec::new(), acl.clone(), CreateMode::Persistent);
+            match res {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if e == ZkError::NodeExists {
+                        Ok(())
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
+        })
     }
 
     fn ls(&self, args: &str) {
