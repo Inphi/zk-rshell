@@ -1,5 +1,5 @@
-use command::COMMAND_MAP;
 use command::Command;
+use command::COMMAND_MAP;
 use regex::Regex;
 use rustyline;
 use rustyline::completion::Completer;
@@ -7,10 +7,10 @@ use std::cell::{Ref, RefCell};
 use std::cmp::max;
 use std::path::Path;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
-use zookeeper::{Acl, CreateMode, Stat, Subscription, ZkError, ZkState, ZooKeeper};
+use zookeeper::{Acl, CreateMode, Stat, Subscription, ZkError, ZkResult, ZkState, ZooKeeper};
 
 use display;
 
@@ -83,6 +83,7 @@ impl Shell {
                 Command::Stat => self.stat(cmdargs.1.as_ref()),
                 Command::Set => self.set(cmdargs.1.as_ref()),
                 Command::Pwd => self.pwd(cmdargs.1.as_ref()),
+                Command::Copy => self.copy(cmdargs.1.as_ref()),
                 Command::Exit => quit = true,
                 Command::Help => self.help(cmdargs.1.as_ref()),
             },
@@ -310,6 +311,36 @@ impl Shell {
         display::print(&self.cwd);
     }
 
+    fn copy(&self, args: &str) {
+        let tokens = tokenize_line(args);
+        if tokens.len() != 2 {
+            display::print("cp <path> <value>");
+            return;
+        }
+        let src = self.normalize_path(&tokens[0]);
+        let dst = self.normalize_path(&tokens[1]);
+        match self.copy_impl(&src, &dst) {
+            Ok(_) => {}
+            Err(e) => {
+                self.print_zk_error(e);
+            }
+        }
+    }
+
+    fn copy_impl(&self, src: &str, dst: &str) -> ZkResult<()> {
+        self.run_zk_op_result(|zk| {
+            let data_stat = zk.get_data(&src, false)?;
+            if let None = zk.exists(&dst, false)? {
+                let (src_acl, _) = zk.get_acl(&src)?;
+                // TODO(inphi): allow for custom create modes?
+                zk.create(&dst, Vec::new(), src_acl, CreateMode::Persistent)?;
+            }
+
+            zk.set_data(&dst, data_stat.0, None)?;
+            Ok(())
+        })
+    }
+
     fn help(&self, _args: &str) {
         unimplemented!();
     }
@@ -369,6 +400,17 @@ impl Shell {
             f(zk);
         } else {
             display::print(NOT_CONNECTED_MSG);
+        }
+    }
+
+    fn run_zk_op_result<F>(&self, f: F) -> ZkResult<()>
+    where
+        F: FnOnce(&ZooKeeper) -> ZkResult<()>,
+    {
+        if let Some(zk) = self.zk.borrow_mut().as_ref() {
+            f(zk)
+        } else {
+            Err(ZkError::ConnectionLoss)
         }
     }
 }
@@ -610,7 +652,8 @@ mod tests {
 
         let check = |a: Vec<(u32, &str)>, line: &str| {
             let y = ShellCompleter::tokenize_line(line);
-            let x = a.iter()
+            let x = a
+                .iter()
                 .map(|x| (x.0 as usize, String::from(x.1)))
                 .collect::<Vec<(usize, String)>>();
             assert_eq!(x, y);

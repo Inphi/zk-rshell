@@ -17,5 +17,6 @@ Also, Rust Evangelism Strikeforce Yadda yadda.
 * rm
 * set
 * stat
+* cp 
 
 There's a lot of missing stuff that zk-shell supports, but these few should get one started. I'll implement them once as soon as I find the need.
