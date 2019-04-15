@@ -175,6 +175,10 @@ impl Shell {
 
     fn set(&self, args: &str) {
         let tokens = tokenize_line(args);
+        if tokens.len() < 2 {
+            display::print("set <path> <value> [version]");
+            return;
+        }
         let path = &tokens[0];
         let path_normalized = self.normalize_path(path);
         let data = tokens[1].clone();
